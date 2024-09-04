@@ -1,0 +1,28 @@
+{
+  "name": "spotify-stats",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run start-web\" \"npx nodemon server.js\"",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "start-web": "vite"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.2",
+    "concurrently": "^8.2.0",
+    "nodemon": "^3.1.4",
+    "vite": "^5.4.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.3",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2"
+  }
+}
