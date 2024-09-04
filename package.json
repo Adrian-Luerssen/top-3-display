@@ -5,10 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run start-web\" \"npx nodemon server.js\"",
+    "dev": "concurrently \"npm run start-web\" \"npm run server\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start-web": "vite"
+    "start-web": "vite",
+    "start-server": "npx nodemon server.js"
   },
   "devDependencies": {
     "@types/node": "^22.5.2",
@@ -22,6 +23,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "node-fetch": "^3.3.2"
   }
