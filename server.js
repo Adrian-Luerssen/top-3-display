@@ -101,7 +101,7 @@ async function saveUserInfo(access_token, refresh_token) {
     if (existingUser) {
       // User exists, update the tokens and last_refresh timestamp
       await updateUserTokenAndTimestamp(
-        existingUser.id,
+        existingUser.spotify_id,
         access_token,
         refresh_token
       );
@@ -115,7 +115,7 @@ async function saveUserInfo(access_token, refresh_token) {
           access_token: access_token,
           refresh_token: refresh_token,
           display_name: userInfo.display_name,
-          last_refresh: new Date().toISOString(), // Set the initial last_refresh timestamp
+          last_refresh: "now()", // Set the initial last_refresh timestamp
         },
       ]);
 
@@ -170,16 +170,18 @@ async function processUsers() {
   }
 }
 
-app.get("/get-top-albums", async (req, res) => {
+app.get("/get-top-albums/:spotify_id", async (req, res) => {
   try {
-    const results = await getTopAlbums(); // Await the promise returned by getTopAlbums()
+    const spotifyId = req.params.spotify_id; // Get the spotify_id from the request parameters
+    const results = await getTopAlbums(spotifyId); // Pass spotify_id to getTopAlbums
+    const user = await getUserData(spotifyId);
 
     if (results && results.length > 0) {
       console.log("Top 3 albums:", results.slice(0, 3)); // Log the top 3 albums
       let top = results.slice(0, 3); // Send the top 3 albums as a response
       let full_top = [];
       for (const album of top) {
-        let full_album = await getAlbumArt(accessToken, album.album_id);
+        let full_album = await getAlbumArt(user.accessToken, album.album_id);
         full_album["plays"] = album["count"];
         full_top.push(full_album);
       }
@@ -381,7 +383,7 @@ async function updateUserTokenAndTimestamp(userId, accessToken, refreshToken) {
     .update({
       access_token: accessToken,
       refresh_token: refreshToken,
-      last_refresh: Date.now().toString,
+      last_refresh: "now()",
     })
     .eq("spotify_id", userId);
 
@@ -392,11 +394,12 @@ async function updateUserTokenAndTimestamp(userId, accessToken, refreshToken) {
   }
 }
 
-async function getTopAlbums() {
+async function getTopAlbums(spotify_id) {
   try {
     const { data, error } = await supabase
       .from("recent_tracks")
-      .select("album_id, album_name");
+      .select("album_id, album_name")
+      .eq("spotify_id", spotify_id);
 
     if (error) {
       console.error("Error selecting from the database:", error);
@@ -429,6 +432,25 @@ async function getTopAlbums() {
   }
 }
 
+async function getUserData(spotify_id) {
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .select("spotify_id, email, access_token, refresh_token, display_name")
+      .eq("spotify_id", spotify_id);
+
+    if (error) {
+      console.error("Error selecting from the database:", error);
+      return [];
+    }
+
+    return data[0];
+  } catch (e) {
+    console.log("Error:", e);
+    return [];
+  }
+}
+
 async function getAlbumArt(token, album_id) {
   const url = `https://api.spotify.com/v1/albums/${album_id}`;
 
@@ -442,6 +464,9 @@ async function getAlbumArt(token, album_id) {
     });
 
     if (!response.ok) {
+      console.log(response.status);
+      console.log(response.statusText);
+      console.log(await response.json());
       throw new Error(`Error fetching album data: ${response.statusText}`);
     }
 
