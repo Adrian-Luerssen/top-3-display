@@ -4,6 +4,7 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import querystring from "querystring";
 import dotenv from "dotenv";
+import { last } from "rxjs";
 
 dotenv.config(); // Load environment variables from .env
 
@@ -79,7 +80,6 @@ async function saveUserInfo(access_token, refresh_token) {
 
     if (!userResponse.ok) {
       console.log(userResponse.status);
-      console.log(userResponse.error.message);
       throw new Error("Failed to fetch user info");
     }
 
@@ -130,13 +130,12 @@ async function saveUserInfo(access_token, refresh_token) {
   }
 }
 
-app.post("/start-background-process", async (req, res) => {
+async function startBackgroundProcess() {
   if (intervalId) {
     clearInterval(intervalId);
   }
 
   await processUsers();
-
   intervalId = setInterval(async () => {
     try {
       console.log("processing users");
@@ -147,9 +146,7 @@ app.post("/start-background-process", async (req, res) => {
       intervalId = null;
     }
   }, 10 * 60 * 1000); // Run every 10 minutes
-
-  res.status(200).send("Background process started");
-});
+}
 
 async function processUsers() {
   const { data: users, error } = await supabase.from("users").select("*");
@@ -224,10 +221,10 @@ async function processUserRecentPlays(user) {
 }
 
 async function checkAndRefreshToken(user) {
-  const lastRefresh = new Date(user.last_refresh);
-  const currentTime = new Date();
+  const lastRefresh = new Date(user.last_refresh).getTime();
+  const currentTime = Date.now();
 
-  // Check if more than 40 minutes have passed since the last refresh
+  // Check if more than 40 minutes (2400000 milliseconds) have passed since the last refresh
   if (currentTime - lastRefresh > 40 * 60 * 1000) {
     const { accessToken, refreshToken } = await refreshSpotifyToken(
       user.refresh_token,
@@ -355,7 +352,8 @@ async function refreshSpotifyToken(oldRefreshToken, clientId, clientSecret) {
       refresh_token: oldRefreshToken,
     }),
   };
-
+  let accessToken;
+  let refreshToken;
   try {
     const response = await fetch(url, payload);
     const data = await response.json();
@@ -383,7 +381,7 @@ async function updateUserTokenAndTimestamp(userId, accessToken, refreshToken) {
     .update({
       access_token: accessToken,
       refresh_token: refreshToken,
-      last_refresh: new Date().toISOString(),
+      last_refresh: Date.now().toString,
     })
     .eq("spotify_id", userId);
 
@@ -467,3 +465,6 @@ async function getAlbumArt(token, album_id) {
 app.listen(3000, () => {
   console.log("Server running on port 3000");
 });
+
+// Start the background process when the server starts
+startBackgroundProcess();
