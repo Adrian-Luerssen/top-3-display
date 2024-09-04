@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run start-web\" \"npm run server\"",
+    "dev": "concurrently \"npm run start-web\" \"npm run start-server\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "start-web": "vite",

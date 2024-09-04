@@ -78,6 +78,8 @@ async function saveUserInfo(access_token, refresh_token) {
     });
 
     if (!userResponse.ok) {
+      console.log(userResponse.status);
+      console.log(userResponse.message);
       throw new Error("Failed to fetch user info");
     }
 
