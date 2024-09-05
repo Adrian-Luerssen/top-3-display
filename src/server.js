@@ -4,11 +4,20 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import querystring from "querystring";
 import dotenv from "dotenv";
-import { last } from "rxjs";
+import http from "http"; // To create the server
+import { Server } from "socket.io"; // Import socket.io
+import path from "path"; // Add this line to import the path module
 
-dotenv.config(); // Load environment variables from .env
-
-const app = express();
+dotenv.config();
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: false,
+};
+//make sure you keep this order
+var app = express();
+var server = http.createServer(app);
+var io = new Server(server).listen(server);
 app.use(express.json());
 app.use(cors());
 
@@ -17,8 +26,11 @@ const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-let intervalId;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+const __dirname = path.resolve();
+
+let intervalId;
 
 // Step 1: Redirect user to Spotify login
 app.get("/login", (req, res) => {
@@ -62,14 +74,23 @@ app.get("/callback", async (req, res) => {
     const { access_token, refresh_token } = tokenData;
 
     // Save the user info and tokens to your database
-    await saveUserInfo(access_token, refresh_token);
+    const user = await saveUserInfo(access_token, refresh_token);
 
-    res.send("User information saved successfully!");
+    // Redirect user to a page where the WebSocket connection will be established
+    res.redirect(`/websocket/${user.spotify_id}`);
   } catch (error) {
     console.error("Error during callback:", error);
     res.status(500).send("An error occurred during authentication.");
   }
 });
+
+// Step 3: Serve the WebSocket-enabled page
+app.get("/websocket/:spotify_id", (req, res) => {
+  const spotify_id = req.params.spotify_id;
+  // Serve the HTML page (e.g., /public/index.html)
+  res.sendFile(path.join(__dirname, "src", "index.html"));
+});
+
 // Function to save user info and tokens to the database
 async function saveUserInfo(access_token, refresh_token) {
   try {
@@ -107,6 +128,7 @@ async function saveUserInfo(access_token, refresh_token) {
         refresh_token
       );
       console.log(`Updated tokens for existing user: ${userInfo.display_name}`);
+      return existingUser;
     } else {
       // User doesn't exist, insert new user information
       const { data, error } = await supabase.from("users").insert([
@@ -124,6 +146,8 @@ async function saveUserInfo(access_token, refresh_token) {
         console.error("Error saving new user info:", error);
       } else {
         console.log("New user information saved:", userInfo.display_name);
+        userInfo.spotify_id = userInfo.id;
+        return userInfo;
       }
     }
   } catch (error) {
@@ -488,9 +512,56 @@ async function getAlbumArt(token, album_id) {
   }
 }
 
-app.listen(3000, () => {
+server.listen(3000, () => {
   console.log("Server running on port 3000");
 });
 
 // Start the background process when the server starts
 startBackgroundProcess();
+
+// Step 4: WebSocket connection and sending albums
+io.on("connection", (socket) => {
+  console.log("A user connected");
+
+  socket.on("joinRoom", async (spotifyId) => {
+    socket.join(spotifyId); // User joins a room with their Spotify ID
+    console.log(`User joined room: ${spotifyId}`);
+    const user = await getUserData(spotifyId);
+
+    // Function to fetch and emit album data
+    const emitAlbumData = async () => {
+      try {
+        const albums = await getTopAlbums(spotifyId);
+        let full_albums = [];
+        for (const album of albums) {
+          let full_album = await getAlbumArt(user.access_token, album.album_id);
+          full_album["plays"] = album["count"];
+          full_albums.push(full_album);
+        }
+        console.log(albums);
+        io.to(spotifyId).emit("albumData", full_albums);
+      } catch (error) {
+        console.error("Error fetching albums:", error);
+        io.to(spotifyId).emit("error", "Failed to fetch albums");
+      }
+    };
+
+    // Emit album data immediately
+    await emitAlbumData();
+
+    // Set an interval to emit album data every 10 minutes (600000 milliseconds)
+    const intervalId = setInterval(emitAlbumData, 600000);
+
+    // Clear the interval when the user leaves the room or disconnects
+    socket.on("leaveRoom", () => {
+      socket.leave(spotifyId);
+      clearInterval(intervalId);
+      console.log(`User left room: ${spotifyId}`);
+    });
+
+    socket.on("disconnect", () => {
+      clearInterval(intervalId);
+      console.log(`A user disconnected from room: ${spotifyId}`);
+    });
+  });
+});

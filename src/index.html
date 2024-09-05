@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Albums</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            margin-right: 20px;
+        }
+
+        .album-info {
+            flex-grow: 1;
+        }
+
+        .album-title {
+            font-size: 18px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .album-artist {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .album-release {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .album-plays {
+            font-size: 16px;
+            margin-left: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Top Albums</h1>
+    <ul id="albums"></ul>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var urlParams = new URLSearchParams(window.location.search);
+        var spotifyId = window.location.pathname.split("/")[2]; // Get the Spotify ID from the URL
+        var socket = io();
+        var albumsList = document.getElementById("albums");
+
+        // Use the access token from the URL
+        console.log(spotifyId);
+
+        window.onload = async () => {
+            // Join the room with the Spotify ID
+            socket.emit("joinRoom", spotifyId);
+
+            // Listen for album data from the server
+            socket.on("albumData", (albums) => {
+                displayAlbums(albums);
+            });
+        };
+
+        // Function to display albums on the page
+        function displayAlbums(albums) {
+            console.log(albums);
+            // Clear the existing albums
+            albumsList.innerHTML = "";
+
+            // Loop through the albums and create list items for each
+            albums.forEach((album, index) => {
+                const li = document.createElement("li");
+
+                // Create album art image element
+                const albumArt = document.createElement("img");
+                albumArt.src = album.album_art;
+                albumArt.alt = `${album.name} album cover`;
+
+                // Create a div for album info
+                const albumInfo = document.createElement("div");
+                albumInfo.classList.add("album-info");
+
+                // Create album title element
+                const albumTitle = document.createElement("div");
+                albumTitle.classList.add("album-title");
+                albumTitle.textContent = `${index + 1}. ${album.name}`;
+
+                // Create album artist element
+                const albumArtist = document.createElement("div");
+                albumArtist.classList.add("album-artist");
+                albumArtist.textContent = `Artist: ${album.artist}`;
+
+                // Create album release date element
+                const albumRelease = document.createElement("div");
+                albumRelease.classList.add("album-release");
+                albumRelease.textContent = `Release Date: ${album.release_date}`;
+
+                // Create album plays element
+                const albumPlays = document.createElement("div");
+                albumPlays.classList.add("album-plays");
+                albumPlays.textContent = `Plays: ${album.plays}`;
+
+                // Append all elements to the list item
+                albumInfo.appendChild(albumTitle);
+                albumInfo.appendChild(albumArtist);
+                albumInfo.appendChild(albumRelease);
+
+                li.appendChild(albumArt);
+                li.appendChild(albumInfo);
+                li.appendChild(albumPlays);
+
+                // Append the list item to the albums list
+                albumsList.appendChild(li);
+            });
+        }
+    </script>
+</body>
+
+</html>
