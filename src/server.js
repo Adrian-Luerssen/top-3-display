@@ -531,8 +531,9 @@ io.on("connection", (socket) => {
     // Function to fetch and emit album data
     const emitAlbumData = async () => {
       try {
-        const albums = await getTopAlbums(spotifyId);
+        let albums = await getTopAlbums(spotifyId);
         let full_albums = [];
+        albums = albums.slice(0, 15); // Send the top 3 albums as a response
         for (const album of albums) {
           let full_album = await getAlbumArt(user.access_token, album.album_id);
           full_album["plays"] = album["count"];
