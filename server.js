@@ -77,10 +77,10 @@ async function saveUserInfo(access_token, refresh_token) {
     const userResponse = await fetch("https://api.spotify.com/v1/me", {
       headers: { Authorization: `Bearer ${access_token}` },
     });
+    console.log("token: ", access_token);
 
     if (!userResponse.ok) {
       console.log(userResponse.status);
-      console.log(await userResponse.json());
       throw new Error("Failed to fetch user info");
     }
 
