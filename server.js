@@ -80,6 +80,7 @@ async function saveUserInfo(access_token, refresh_token) {
 
     if (!userResponse.ok) {
       console.log(userResponse.status);
+      console.log(await userResponse.json());
       throw new Error("Failed to fetch user info");
     }
 
@@ -181,7 +182,7 @@ app.get("/get-top-albums/:spotify_id", async (req, res) => {
       let top = results.slice(0, 3); // Send the top 3 albums as a response
       let full_top = [];
       for (const album of top) {
-        let full_album = await getAlbumArt(user.accessToken, album.album_id);
+        let full_album = await getAlbumArt(user.access_token, album.album_id);
         full_album["plays"] = album["count"];
         full_top.push(full_album);
       }
