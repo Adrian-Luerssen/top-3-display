@@ -184,11 +184,10 @@ async function processUsers() {
   for (const user of users) {
     try {
       console.log("processing user: " + user.display_name);
-      // Fetch and save recent plays
-      await processUserRecentPlays(user);
-
       // Check if the token needs to be refreshed
       await checkAndRefreshToken(user);
+      // Fetch and save recent plays
+      await processUserRecentPlays(user);
     } catch (error) {
       console.error(`Error processing user ${user.display_name}:`, error);
     }
@@ -539,8 +538,8 @@ io.on("connection", (socket) => {
           full_album["plays"] = album["count"];
           full_albums.push(full_album);
         }
-        console.log(albums);
         io.to(spotifyId).emit("albumData", full_albums);
+        console.log("sending albums to websocket ", user.display_name);
       } catch (error) {
         console.error("Error fetching albums:", error);
         io.to(spotifyId).emit("error", "Failed to fetch albums");
