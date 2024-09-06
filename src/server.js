@@ -75,7 +75,7 @@ app.get("/callback", async (req, res) => {
 
     // Save the user info and tokens to your database
     const user = await saveUserInfo(access_token, refresh_token);
-
+    await processUserRecentPlays(user);
     // Redirect user to a page where the WebSocket connection will be established
     res.redirect(`/websocket/${user.spotify_id}`);
   } catch (error) {
