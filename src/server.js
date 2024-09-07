@@ -77,7 +77,7 @@ app.get("/callback", async (req, res) => {
     const user = await saveUserInfo(access_token, refresh_token);
     await processUserRecentPlays(user);
     // Redirect user to a page where the WebSocket connection will be established
-    res.redirect(`/websocket/${user.spotify_id}`);
+    res.redirect(`/personal?spotify_id=${user.spotify_id}`);
   } catch (error) {
     console.error("Error during callback:", error);
     res.status(500).send("An error occurred during authentication.");
@@ -85,12 +85,15 @@ app.get("/callback", async (req, res) => {
 });
 
 // Step 3: Serve the WebSocket-enabled page
-app.get("/websocket/:spotify_id", (req, res) => {
-  const spotify_id = req.params.spotify_id;
+app.get("/personal", (req, res) => {
   // Serve the HTML page (e.g., /public/index.html)
   res.sendFile(path.join(__dirname, "src", "index.html"));
 });
-
+app.get("/global", (req, res) => {
+  const spotify_id = req.params.spotify_id;
+  // Serve the HTML page (e.g., /public/index.html)
+  res.sendFile(path.join(__dirname, "src", "global.html"));
+});
 // Function to save user info and tokens to the database
 async function saveUserInfo(access_token, refresh_token) {
   try {
@@ -276,7 +279,7 @@ async function getRecentlyPlayed(token) {
 
   try {
     const result = await Promise.race([
-      fetch("https://api.spotify.com/v1/me/player/recently-played", {
+      fetch("https://api.spotify.com/v1/me/player/recently-played?limit=49", {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
       }),
@@ -456,6 +459,97 @@ async function getTopAlbums(spotify_id) {
   }
 }
 
+async function getGlobalTopAlbums() {
+  try {
+    const { data, error } = await supabase
+      .from("recent_tracks")
+      .select("spotify_id, album_id, album_name, track_id, track_name");
+
+    if (error) {
+      console.error("Error selecting from the database:", error);
+      return [];
+    }
+
+    // Count the occurrences of each album_id globally and track top listener and tracks
+    const albumCounts = data.reduce((acc, track) => {
+      const albumKey = `${track.album_id}:${track.album_name}`;
+
+      if (!acc[albumKey]) {
+        acc[albumKey] = {
+          album_id: track.album_id,
+          album_name: track.album_name,
+          count: 0,
+          listeners: {}, // Track listeners play counts
+          tracks: {}, // Track play counts for each track
+        };
+      }
+
+      // Increment album play count globally
+      acc[albumKey].count += 1;
+
+      // Track listener's plays for the album
+      if (!acc[albumKey].listeners[track.spotify_id]) {
+        acc[albumKey].listeners[track.spotify_id] = 0;
+      }
+      acc[albumKey].listeners[track.spotify_id] += 1;
+
+      // Track play count for each track within the album
+      if (!acc[albumKey].tracks[track.track_id]) {
+        acc[albumKey].tracks[track.track_id] = {
+          track_name: track.track_name,
+          count: 0,
+        };
+      }
+      acc[albumKey].tracks[track.track_id].count += 1;
+
+      return acc;
+    }, {});
+
+    // Convert the counts object to an array
+    const sortedAlbums = Object.values(albumCounts).map((album) => {
+      // Determine top listener for each album
+      const topListenerId = Object.keys(album.listeners).reduce(
+        (top, listenerId) => {
+          return album.listeners[listenerId] > album.listeners[top]
+            ? listenerId
+            : top;
+        },
+        Object.keys(album.listeners)[0]
+      );
+
+      // Determine the top track for each album
+      const topTrackId = Object.keys(album.tracks).reduce((top, trackId) => {
+        return album.tracks[trackId].count > album.tracks[top].count
+          ? trackId
+          : top;
+      }, Object.keys(album.tracks)[0]);
+
+      return {
+        album_id: album.album_id,
+        album_name: album.album_name,
+        count: album.count, // Global play count for album
+        top_listener: {
+          spotify_id: topListenerId,
+          plays: album.listeners[topListenerId],
+        },
+        top_track: {
+          track_id: topTrackId,
+          track_name: album.tracks[topTrackId].track_name,
+          plays: album.tracks[topTrackId].count,
+        },
+      };
+    });
+
+    // Sort the array by global play count
+    const finalSortedAlbums = sortedAlbums.sort((a, b) => b.count - a.count);
+
+    return finalSortedAlbums; // Return the sorted array of albums with top listeners and top tracks
+  } catch (e) {
+    console.log("Error:", e);
+    return [];
+  }
+}
+
 async function getUserData(spotify_id) {
   try {
     const { data, error } = await supabase
@@ -562,6 +656,47 @@ io.on("connection", (socket) => {
     socket.on("disconnect", () => {
       clearInterval(intervalId);
       console.log(`A user disconnected from room: ${spotifyId}`);
+    });
+  });
+
+  socket.on("requestGlobalAlbums", async () => {
+    // Fetch the global album data with top listeners
+    const emitGlobalAlbumData = async () => {
+      try {
+        let globalAlbums = await getGlobalTopAlbums(); // Fetch top albums globally
+        let full_albums = [];
+
+        globalAlbums = globalAlbums.slice(0, 15); // Limit to top 15 albums
+        for (const album of globalAlbums) {
+          const user = await getUserData(album.top_listener.spotify_id); // Assume function exists to get album art
+          let full_album = await getAlbumArt(user.access_token, album.album_id);
+          full_album["plays"] = album["count"];
+          full_album["top_track"] = album["top_track"];
+          full_album["top_listener"] = {
+            plays: album.top_listener.plays,
+            display_name: user.display_name,
+          };
+          full_albums.push(full_album);
+        }
+
+        // Emit global album data to all clients
+        io.emit("globalAlbumData", full_albums);
+        console.log("Sending global album data to all users");
+      } catch (error) {
+        console.error("Error fetching global albums:", error);
+        socket.emit("error", "Failed to fetch global albums");
+      }
+    };
+
+    // Emit global album data immediately
+    await emitGlobalAlbumData();
+
+    // Optionally, emit updates periodically (every 10 minutes)
+    const intervalId = setInterval(emitGlobalAlbumData, 600000);
+
+    socket.on("disconnect", () => {
+      clearInterval(intervalId);
+      console.log("A user disconnected");
     });
   });
 });

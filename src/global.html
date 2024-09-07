@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Albums</title>
+    <title>Global Album Tierlist</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -61,10 +61,16 @@
             color: #333;
         }
 
-        .album-release {
+        .top-listener {
             font-size: 14px;
-            color: #777;
             margin-top: 5px;
+            color: #777;
+        }
+
+        .top-listener-podium {
+            font-size: 14px;
+            margin-top: 5px;
+            color: #ffffff;
         }
 
         .navbar {
@@ -147,32 +153,34 @@
         <a href="#" id="personalLink">Personal Top Albums</a>
     </div>
 
-    <h1>Personal Top Albums</h1>
+    <h1>Global Top Albums</h1>
     <ul id="podium" class="podium"></ul>
     <ul id="albums" class="below-podium"></ul>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        var spotifyId = new URLSearchParams(window.location.search).get("spotify_id");
+        var spotifyId = localStorage.getItem("spotifyId"); // Retrieve the stored Spotify ID
         var socket = io();
         var podiumList = document.getElementById("podium");
         var albumsList = document.getElementById("albums");
+        var personalLink = document.getElementById("personalLink");
 
-        // Save the Spotify ID to local storage
+        // Update the Personal Top Albums link with the Spotify ID if available
         if (spotifyId) {
-            localStorage.setItem("spotifyId", spotifyId);
+            personalLink.href = `/personal?spotify_id=${spotifyId}`;
+        } else {
+            personalLink.href = '/login'; // Fallback if no Spotify ID is available
+            personalLink.innerText = "Login";
         }
 
         window.onload = async () => {
-            if (spotifyId) {
-                // Join the room with the Spotify ID
-                socket.emit("joinRoom", spotifyId);
+            // Request global album data
+            socket.emit("requestGlobalAlbums");
 
-                // Listen for album data from the server
-                socket.on("albumData", (albums) => {
-                    displayAlbums(albums);
-                });
-            }
+            // Listen for global album data from the server
+            socket.on("globalAlbumData", (albums) => {
+                displayAlbums(albums);
+            });
         };
 
         function displayAlbums(albums) {
@@ -198,20 +206,20 @@
                 albumTitle.classList.add("album-title");
                 albumTitle.textContent = `${index + 1}. ${album.name}`;
 
-                const albumArtist = document.createElement("div");
-                albumArtist.classList.add("album-artist");
-                albumArtist.textContent = `Artist: ${album.artist}`;
-
                 const albumPlays = document.createElement("div");
                 albumPlays.classList.add("album-plays");
                 albumPlays.textContent = `Plays: ${album.plays}`;
 
+                const topListener = document.createElement("div");
+                topListener.classList.add("top-listener-podium");
+                topListener.textContent = `Top Listener: ${album.top_listener.display_name} (${album.top_listener.plays} plays)`;
+
                 albumInfo.appendChild(albumTitle);
-                albumInfo.appendChild(albumArtist);
+                albumInfo.appendChild(albumPlays);
+                albumInfo.appendChild(topListener);
 
                 li.appendChild(albumArt);
                 li.appendChild(albumInfo);
-                li.appendChild(albumPlays);
 
                 podiumList.appendChild(li);
             });
@@ -231,25 +239,20 @@
                 albumTitle.classList.add("album-title");
                 albumTitle.textContent = `${index + 4}. ${album.name}`;
 
-                const albumArtist = document.createElement("div");
-                albumArtist.classList.add("album-artist");
-                albumArtist.textContent = `Artist: ${album.artist}`;
-
-                const albumRelease = document.createElement("div");
-                albumRelease.classList.add("album-release");
-                albumRelease.textContent = `Release Date: ${album.release_date}`;
-
                 const albumPlays = document.createElement("div");
                 albumPlays.classList.add("album-plays");
                 albumPlays.textContent = `Plays: ${album.plays}`;
 
+                const topListener = document.createElement("div");
+                topListener.classList.add("top-listener");
+                topListener.textContent = `Top Listener: ${album.top_listener.display_name} (${album.top_listener.plays} plays)`;
+
                 albumInfo.appendChild(albumTitle);
-                albumInfo.appendChild(albumArtist);
-                albumInfo.appendChild(albumRelease);
+                albumInfo.appendChild(albumPlays);
+                albumInfo.appendChild(topListener);
 
                 li.appendChild(albumArt);
                 li.appendChild(albumInfo);
-                li.appendChild(albumPlays);
 
                 albumsList.appendChild(li);
             });
