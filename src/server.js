@@ -423,10 +423,33 @@ async function updateUserTokenAndTimestamp(userId, accessToken, refreshToken) {
 
 async function getTopAlbums(spotify_id) {
   try {
-    const { data, error } = await supabase
-      .from("recent_tracks")
-      .select("album_id, album_name")
-      .eq("spotify_id", spotify_id);
+    let data = [];
+    let start = 0;
+    let error = null;
+    let ret_data;
+
+    do {
+      const response = await supabase
+        .from("recent_tracks")
+        .select("album_id, album_name")
+        .eq("spotify_id", spotify_id)
+        .range(start * 1000, (start + 1) * 1000 - 1); // Adjusted range, as it's inclusive
+
+      ret_data = response.data;
+      error = response.error;
+
+      if (error) {
+        console.error("Error fetching data:", error);
+        break; // Exit the loop on error
+      }
+
+      console.log("Range: ", start * 1000, " - ", (start + 1) * 1000);
+      console.log("Length: ", ret_data.length);
+
+      data = data.concat(ret_data); // Push ret_data into the main data array
+
+      start++;
+    } while (ret_data.length === 1000); // Continue only if 1000 rows are returned
 
     if (error) {
       console.error("Error selecting from the database:", error);
@@ -461,9 +484,30 @@ async function getTopAlbums(spotify_id) {
 
 async function getGlobalTopAlbums() {
   try {
-    const { data, error } = await supabase
-      .from("recent_tracks")
-      .select("spotify_id, album_id, album_name, track_id, track_name");
+    let data = [];
+    let start = 0;
+    let error = null;
+    let ret_data;
+
+    do {
+      const response = await supabase
+        .from("recent_tracks")
+        .select("spotify_id, album_id, album_name, track_id, track_name")
+        .range(start * 1000, (start + 1) * 1000 - 1); // Adjusted range, as it's inclusive
+
+      ret_data = response.data;
+      error = response.error;
+
+      if (error) {
+        console.error("Error fetching data:", error);
+        break; // Exit the loop on error
+      }
+
+
+      data = data.concat(ret_data); // Push ret_data into the main data array
+
+      start++;
+    } while (ret_data.length === 1000); // Continue only if 1000 rows are returned
 
     if (error) {
       console.error("Error selecting from the database:", error);
