@@ -231,10 +231,10 @@ app.get("/get-top-albums/:spotify_id/:album_number", async (req, res) => {
     const user = await getUserData(spotifyId);
 
     if (results && results.length > 0 && results.length >= album_number) {
-      let top = results.get(album_number); // Send the top 3 albums as a response
+      let top = results[album_number]; // Send the top 3 albums as a response
 
       let full_album = await getAlbumArt(user.access_token, top.album_id);
-      full_album["plays"] = album["count"];
+      full_album["plays"] = top["count"];
       res.status(200).json(full_album);
     } else {
       console.log("No albums found.");
