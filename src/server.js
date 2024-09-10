@@ -670,6 +670,7 @@ async function getAlbumArt(token, album_id) {
       artist: albumData.artists.map((artist) => artist.name).join(", "),
       release_date: albumData.release_date,
       album_art: albumData.images[0]?.url, // This usually gives the largest image
+      album_art_low: albumData.images[albumData.images.length - 2]?.url, // This gives the smallest image (last item)
     };
 
     return albumInfo;
