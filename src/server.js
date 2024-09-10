@@ -223,6 +223,29 @@ app.get("/get-top-albums/:spotify_id", async (req, res) => {
   }
 });
 
+app.get("/get-top-albums/:spotify_id/:album_number", async (req, res) => {
+  try {
+    const spotifyId = req.params.spotify_id; // Get the spotify_id from the request parameters
+    const album_number = req.params.album_number; // Get the spotify_id from the request parameters
+    const results = await getTopAlbums(spotifyId); // Pass spotify_id to getTopAlbums
+    const user = await getUserData(spotifyId);
+
+    if (results && results.length > 0 && results.length >= album_number) {
+      let top = results.get(album_number); // Send the top 3 albums as a response
+
+      let full_album = await getAlbumArt(user.access_token, top.album_id);
+      full_album["plays"] = album["count"];
+      res.status(200).json(full_album);
+    } else {
+      console.log("No albums found.");
+      res.status(404).json({ message: "No albums found." });
+    }
+  } catch (e) {
+    console.error("Error retrieving top albums:", e);
+    res.status(500).json({ error: "Failed to retrieve top albums." });
+  }
+});
+
 async function processUserRecentPlays(user) {
   try {
     const recentlyPlayed = await getRecentlyPlayed(user.access_token);
@@ -502,7 +525,6 @@ async function getGlobalTopAlbums() {
         console.error("Error fetching data:", error);
         break; // Exit the loop on error
       }
-
 
       data = data.concat(ret_data); // Push ret_data into the main data array
 
