@@ -226,7 +226,7 @@ app.get("/get-top-albums/:spotify_id", async (req, res) => {
 app.get("/get-top-albums/:spotify_id/:album_number", async (req, res) => {
   try {
     const spotifyId = req.params.spotify_id; // Get the spotify_id from the request parameters
-    const album_number = req.params.album_number; // Get the spotify_id from the request parameters
+    const album_number = Number(req.params.album_number) - 1; // Get the spotify_id from the request parameters
     const results = await getTopAlbums(spotifyId); // Pass spotify_id to getTopAlbums
     const user = await getUserData(spotifyId);
 
@@ -235,6 +235,14 @@ app.get("/get-top-albums/:spotify_id/:album_number", async (req, res) => {
 
       let full_album = await getAlbumArt(user.access_token, top.album_id);
       full_album["plays"] = top["count"];
+      console.log(
+        "User: " +
+          user.display_name +
+          " getting their #" +
+          album_number +
+          " album - " +
+          full_album.name
+      );
       res.status(200).json(full_album);
     } else {
       console.log("No albums found.");
@@ -466,8 +474,8 @@ async function getTopAlbums(spotify_id) {
         break; // Exit the loop on error
       }
 
-      console.log("Range: ", start * 1000, " - ", (start + 1) * 1000);
-      console.log("Length: ", ret_data.length);
+      //console.log("Range: ", start * 1000, " - ", (start + 1) * 1000);
+      //console.log("Length: ", ret_data.length);
 
       data = data.concat(ret_data); // Push ret_data into the main data array
 
