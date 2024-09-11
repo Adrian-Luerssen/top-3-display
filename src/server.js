@@ -173,7 +173,7 @@ async function startBackgroundProcess() {
       clearInterval(intervalId);
       intervalId = null;
     }
-  }, 10 * 60 * 1000); // Run every 10 minutes
+  }, 10 * 60 * 200); // Run every 10 minutes
 }
 
 async function processUsers() {
@@ -310,7 +310,7 @@ async function getRecentlyPlayed(token) {
 
   try {
     const result = await Promise.race([
-      fetch("https://api.spotify.com/v1/me/player/recently-played?limit=49", {
+      fetch("https://api.spotify.com/v1/me/player/recently-played?limit=5", {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
       }),
