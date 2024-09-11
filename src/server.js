@@ -719,7 +719,7 @@ io.on("connection", (socket) => {
     await emitAlbumData();
 
     // Set an interval to emit album data every 10 minutes (600000 milliseconds)
-    const intervalId = setInterval(emitAlbumData, 600000);
+    const intervalId = setInterval(emitAlbumData, 1000 * 60 * 2);
 
     // Clear the interval when the user leaves the room or disconnects
     socket.on("leaveRoom", () => {
@@ -767,7 +767,7 @@ io.on("connection", (socket) => {
     await emitGlobalAlbumData();
 
     // Optionally, emit updates periodically (every 10 minutes)
-    const intervalId = setInterval(emitGlobalAlbumData, 600000);
+    const intervalId = setInterval(emitGlobalAlbumData, 1000 * 60 * 2);
 
     socket.on("disconnect", () => {
       clearInterval(intervalId);
